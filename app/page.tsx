@@ -11,27 +11,46 @@ import styles from "./page.module.css";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [identity, setIdentity] = useState<IdentityContextType | null>(null);
 
   // ---- Identity Guard (Day-1 contract) ----
-  useEffect(() => {
+  // Initialize identity from sessionStorage using lazy initialization
+  const [state] = useState<{
+    identity: IdentityContextType | null;
+    isLoading: boolean;
+  }>(() => {
+    // This function only runs once during initial render
+    // Check if we're on the client side
+    if (typeof window === "undefined") {
+      return { identity: null, isLoading: true };
+    }
+
     const raw = sessionStorage.getItem("identity");
+
     if (!raw) {
-      router.replace("/select");
-      return;
+      return { identity: null, isLoading: false };
     }
 
     try {
-      setIdentity(JSON.parse(raw));
+      const parsedIdentity = JSON.parse(raw);
+      return { identity: parsedIdentity, isLoading: false };
     } catch {
       sessionStorage.removeItem("identity");
+      return { identity: null, isLoading: false };
+    }
+  });
+
+  // Redirect if no valid identity found
+  useEffect(() => {
+    if (!state.isLoading && !state.identity) {
       router.replace("/select");
     }
-  }, [router]);
+  }, [state.identity, state.isLoading, router]);
 
-  if (!identity) {
+  if (state.isLoading || !state.identity) {
     return null; // block rendering until identity is resolved
   }
+
+  const { identity } = state;
 
   // ---- Tenant-scoped metadata (Day-2 core) ----
   const schema = getSchema(identity.tenantId, "lead");

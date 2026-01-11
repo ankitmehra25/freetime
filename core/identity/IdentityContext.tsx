@@ -14,7 +14,7 @@ type IdentityContextValue = {
   setIdentity: (i: IdentityContextType) => void;
 };
 
-const IdentityContext = createContext<IdentityContextValue | null>(null);
+export const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 export function IdentityProvider({
   initialIdentity,

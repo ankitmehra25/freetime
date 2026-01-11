@@ -55,7 +55,7 @@ export default function IdentitySelectPage() {
             <select
               className={styles.select}
               value={role}
-              onChange={(e) => setRole(e.target.value as any)}
+              onChange={(e) => setRole(e.target.value as "admin" | "user")}
             >
               <option value="admin">Admin</option>
               <option value="user">User</option>

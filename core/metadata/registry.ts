@@ -4,8 +4,8 @@ import { EntitySchema } from "./types";
 
 export function getSchema(tenantId: string, entity: string): EntitySchema {
   const schemas: Record<string, EntitySchema> = {
-    "tenant-a": tenantA,
-    "tenant-b": tenantB,
+    "tenant-a": tenantA as EntitySchema,
+    "tenant-b": tenantB as EntitySchema,
   };
 
   const schema = schemas[tenantId];

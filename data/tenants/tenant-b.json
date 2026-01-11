@@ -1,17 +1,24 @@
 {
   "tenantId": "tenant-b",
   "entity": "lead",
-  "version": "1.0",
+  "version": "1.1",
   "attributes": [
     {
       "name": "email",
       "type": "string",
-      "label": { "en-IN": "Email", "en-US": "Email" }
+      "label": { "en-IN": "Email", "en-US": "Email" },
+      "validations": [
+        { "type": "required", "message": { "en-US": "Email is required" } }
+      ]
     },
     {
       "name": "budget",
       "type": "number",
-      "label": { "en-IN": "Budget", "en-US": "Budget" }
+      "label": { "en-IN": "Budget", "en-US": "Budget" },
+      "visibleWhen": {
+        "dependsOn": "email",
+        "equals": true
+      }
     }
   ]
 }
