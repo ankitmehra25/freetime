@@ -1,0 +1,17 @@
+{
+  "tenantId": "tenant-b",
+  "entity": "lead",
+  "version": "1.0",
+  "attributes": [
+    {
+      "name": "email",
+      "type": "string",
+      "label": { "en-IN": "Email", "en-US": "Email" }
+    },
+    {
+      "name": "budget",
+      "type": "number",
+      "label": { "en-IN": "Budget", "en-US": "Budget" }
+    }
+  ]
+}

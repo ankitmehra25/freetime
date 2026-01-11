@@ -1,0 +1,13 @@
+{
+  "tenantId": "tenant-a",
+  "entity": "lead",
+  "version": "1.0",
+  "attributes": [
+    {
+      "name": "email",
+      "type": "string",
+      "label": { "en-IN": "Email", "en-US": "Email" },
+      "required": true
+    }
+  ]
+}
