@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 import { IdentityProvider } from "@/core/identity/IdentityContext";
@@ -39,15 +39,22 @@ export default function DashboardPage() {
     }
   });
 
+  // Ensure we only render the content after hydration to match server output
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
   // Redirect if no valid identity found
   useEffect(() => {
-    if (!state.isLoading && !state.identity) {
+    if (isMounted && !state.isLoading && !state.identity) {
       router.replace("/select");
     }
-  }, [state.identity, state.isLoading, router]);
+  }, [state.identity, state.isLoading, router, isMounted]);
 
-  if (state.isLoading || !state.identity) {
-    return null; // block rendering until identity is resolved
+  if (!isMounted || state.isLoading || !state.identity) {
+    return null; // block rendering until identity is resolved and hydration matches
   }
 
   const { identity } = state;

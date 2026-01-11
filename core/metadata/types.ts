@@ -5,10 +5,15 @@ export type ValidationRule =
   | { type: "min"; value: number; message?: Record<string, string> }
   | { type: "max"; value: number; message?: Record<string, string> };
 
-export type VisibilityRule = {
-  dependsOn: string;
-  equals: unknown;
-};
+export type VisibilityRule =
+  | {
+      dependsOn: string;
+      exists: true;
+    }
+  | {
+      dependsOn: string;
+      equals: unknown;
+    };
 
 export type Attribute = {
   name: string;

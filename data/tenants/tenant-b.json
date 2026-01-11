@@ -17,7 +17,7 @@
       "label": { "en-IN": "Budget", "en-US": "Budget" },
       "visibleWhen": {
         "dependsOn": "email",
-        "equals": true
+        "exists": true
       }
     }
   ]
