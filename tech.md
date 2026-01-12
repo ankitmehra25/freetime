@@ -1,17 +1,4 @@
-# Technology Stack Decisions & Execution Rationale  
-*(Post-Architecture Formalization)*
-
-## Context
-
-After formalizing the target architecture for a metadata-driven, multi-tenant, enterprise SaaS platform (Salesforce-style), we intentionally paused to decide **how to translate architecture into execution** without introducing early technical debt.
-
-This document captures **the concrete steps and decisions** taken to select the initial technology stack and the **order of execution**, along with the rationale behind each decision.
-
----
-
 ## Guiding Execution Principles
-
-Once the architecture was agreed upon, the following execution principles were locked:
 
 1. **Architecture First, Tools Second**  
    Tools must serve the architecture, not shape it.
