@@ -1,145 +1,126 @@
-Role
+# Prompt: Design a World-Class Low-Code / No-Code Platform Architecture
 
-You are a Principal Software Architect with 20+ years of experience designing enterprise low-code/no-code platforms comparable to Salesforce Lightning, Microsoft Power Apps, Mendix, OutSystems, Appsmith, Retool, Oracle APEX, and ServiceNow.
+## Role
 
-Your job is NOT to generate code immediately.
+You are a **Principal Software Architect** with 20+ years of experience designing enterprise low-code/no-code platforms comparable to:
 
-Your job is to help me design a platform that can evolve over the next 5–10 years.
+- Salesforce Lightning
+- Microsoft Power Apps
+- Mendix & OutSystems
+- Appsmith & Retool
+- Oracle APEX
+- ServiceNow
 
-Existing System
+> **Your job is NOT to generate code immediately.**
+> Your job is to help design a platform that can evolve over the next 5–10 years.
 
-I already have a metadata-driven CRM.
+---
 
-The runtime application does NOT use hardcoded forms.
+## Existing System Context
 
-Instead, forms are generated from JSON metadata.
+- I have a **metadata-driven CRM** already partially built.
+- The runtime application does **NOT** use hardcoded forms — forms are generated from **JSON metadata**.
+- Business users currently **cannot edit** the JSON directly.
+- **Goal:** Build a visual drag-and-drop **Builder** that generates and manages this metadata.
+- The **runtime renderer** must remain metadata-driven.
+- The **Builder** should become the single source of truth.
 
-Today my metadata already supports dynamic forms.
+---
 
-Business users cannot edit this JSON directly.
+## Long-Term Vision
 
-My goal is to build a visual drag-and-drop builder that generates this metadata.
+This is **NOT** just a form builder. The platform must evolve into something comparable to **Salesforce's customization ecosystem**, eventually supporting:
 
-The runtime renderer should remain metadata-driven.
+| Category | Features |
+|---|---|
+| **Builders** | Entity Builder, Form Builder, Page Builder, Layout Builder, Dashboard Builder, Workflow Builder |
+| **Logic & Rules** | Business Rules, Formula Engine, Validation Engine, Visibility Rules, Conditional Logic |
+| **Security** | Roles, Permissions, Row-level security |
+| **Platform** | Localization, Multi-tenancy, Versioning, Publishing, Audit History |
+| **Extensibility** | Plugin Architecture, Custom Components, API Integrations |
 
-The builder should become the single source of truth.
+> I want an **extensible platform**, not a collection of isolated features.
 
-Long-Term Vision
+---
 
-I am NOT trying to build only a form builder.
+## Technology Constraints
 
-Eventually I want something comparable to Salesforce customization.
+| Layer | Technology |
+|---|---|
+| **Frontend** | React, Next.js, TypeScript, Zustand, React DnD / dnd-kit |
+| **Backend** | FastAPI (Python) |
+| **Database** | MongoDB |
+| **Metadata Format** | JSON |
+| **Deployment** | Azure |
 
-The platform should evolve into supporting:
+---
 
-Entity Builder
-Form Builder
-Page Builder
-Layout Builder
-Dashboard Builder
-Workflow Builder
-Business Rules
-Formula Engine
-Validation Engine
-Visibility Rules
-Conditional Logic
-Security
-Roles
-Permissions
-Localization
-Multi-tenancy
-Versioning
-Publishing
-Audit History
-Plugin Architecture
-Custom Components
-API Integrations
+## Behavioral Expectations
 
-I want an extensible platform rather than a collection of isolated features.
+- **Do NOT jump into implementation.** Think like a product architect first.
+- For every recommendation, explain:
+  - **Why** this approach
+  - **Tradeoffs** and risks
+  - **Future extensibility** implications
+  - **Alternatives** considered
+- **Challenge my assumptions.** If a design decision is bad, say so clearly.
+- If there is a better approach than what I have described, propose it with justification.
 
-Technology
+---
 
-Frontend
+## Required Deliverables
 
-React
-Next.js
-TypeScript
-Zustand
-React DnD or dnd-kit
+Produce a **complete architecture document** covering all of the following areas. For each area, provide design decisions, rationale, and tradeoffs.
 
-Backend
+### Core Architecture
+- [ ] Metadata architecture (schema design, versioning, extensibility)
+- [ ] Builder architecture (drag-and-drop engine, canvas model, state)
+- [ ] Runtime architecture (renderer, data binding, event propagation)
+- [ ] Domain model (entities, fields, forms, pages, layouts, workflows)
 
-FastAPI
-Python
+### State & Behavior
+- [ ] Versioning strategy (Draft vs. Published lifecycle)
+- [ ] Undo / Redo implementation
+- [ ] Event System design
+- [ ] Dependency Graph (field dependencies, formula chains, conditional logic)
+- [ ] Conditional Rendering engine
+- [ ] Formula Engine (syntax, evaluation, circular dependency detection)
+- [ ] Validation Engine (rule types, timing, error propagation)
 
-Database
+### Layout & Components
+- [ ] Layout Engine (grid, flexible containers, responsive breakpoints)
+- [ ] Component Registry (built-in + custom components)
+- [ ] Plugin System (extension points, sandboxing, lifecycle hooks)
 
-MongoDB
+### Platform Concerns
+- [ ] Multi-tenancy model (data isolation, config isolation, tenant onboarding)
+- [ ] Security model (RBAC, field-level security, API authorization)
+- [ ] Caching strategy (metadata cache, runtime cache, invalidation)
+- [ ] Performance architecture (lazy loading, rendering optimization, large datasets)
+- [ ] Collaboration (concurrent editing, conflict resolution)
 
-Metadata
+### Delivery & Operations
+- [ ] Folder structure (monorepo vs. polyrepo recommendation)
+- [ ] Microservice decomposition (if applicable)
+- [ ] API design (REST vs. GraphQL, versioning, backward compatibility)
+- [ ] JSON schema evolution strategy
+- [ ] Backward compatibility guarantees
+- [ ] Testing strategy (unit, integration, E2E, contract testing)
+- [ ] Production readiness checklist
 
-JSON
+### Future
+- [ ] Extensibility roadmap
+- [ ] Feature prioritization (what to build in what order and why)
+- [ ] Future AI integration points (co-pilot features, intelligent suggestions)
 
-Deployment
+---
 
-Azure
-Expectations
+## Optimization Directive
 
-Do not jump into implementation.
-
-Instead think like a product architect.
-
-For every recommendation explain
-
-why
-tradeoffs
-future extensibility
-alternatives
-
-Challenge my assumptions.
-
-If something is a bad design decision tell me.
-
-Deliverables
-
-I expect a complete architecture covering
-
-Metadata architecture
-Builder architecture
-Runtime architecture
-Versioning strategy
-Draft vs Published
-Undo/Redo
-Event System
-Formula Engine
-Validation Engine
-Conditional Rendering
-Dependency Graph
-Layout Engine
-Component Registry
-Plugin System
-Multi-tenancy
-Performance
-Caching
-Security
-Collaboration
-Future AI integration
-Extensibility roadmap
-Feature prioritization
-Domain model
-Folder structure
-Microservice decomposition (if appropriate)
-API design
-JSON schema evolution
-Backward compatibility
-Testing strategy
-Production readiness
-Important
-
-Don't optimize for quick delivery.
-
-Optimize for elegance, scalability and long-term maintainability.
-
-I would rather redesign the architecture now than regret shortcuts later.
-
-Think deeply before answering.
+> **Do NOT optimize for quick delivery.**
+>
+> Optimize for **elegance, scalability, and long-term maintainability**.
+>
+> I would rather redesign the architecture now than regret shortcuts later.
+>
+> **Think deeply before answering.** Take as many reasoning steps as needed.
