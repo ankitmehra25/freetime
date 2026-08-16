@@ -1,0 +1,1474 @@
+V1 — Enterprise Citizen Data Gateway
+
+0. Mission
+
+Evolve the existing V0 Python FastAPI application into V1 of an enterprise-grade Citizen Data Gateway.
+
+The existing V0 is already functional and must NOT be discarded.
+
+V0 currently proves two core capabilities:
+
+1. Databricks/Unity Catalog authorization.
+2. SQL validation and query guardrails.
+
+V1 must preserve those capabilities and introduce:
+
+1. Business-level access/entitlement metadata.
+2. A domain/data-product semantic layer.
+3. Semantic discovery from existing enterprise/Databricks metadata.
+4. Pluggable query-understanding providers.
+5. Databricks Genie as the initial query-understanding implementation.
+6. OpenAI/enterprise LLM as a future interchangeable implementation.
+7. Microsoft Graph/Entra as the future enterprise identity/group provider.
+8. A source-agnostic data-source abstraction, while implementing Databricks as the only V1 physical data-source adapter.
+9. Auditability.
+10. Clean architectural boundaries so V2 can add SQL Server, Azure SQL, Oracle, Salesforce, APIs, etc. without redesigning the core platform.
+
+⸻
+
+1. Enterprise Context
+
+The organization has approximately:
+
+* 45,000 potential citizen developers.
+* Approximately 50+ enterprise data hubs/data products.
+* Approximately 50–60% of those data hubs are currently available through Databricks.
+* Other enterprise data may remain in:
+    * On-prem SQL Server
+    * Azure SQL
+    * Oracle
+    * Salesforce
+    * Other enterprise systems
+
+The uploaded enterprise architecture diagram already reflects multiple enterprise source systems feeding the broader data platform.
+
+The Citizen Developer interaction layer will be:
+
+* Cloud CoWork
+* Cloud Desktop
+* Future MCP-compatible agents
+* Future enterprise API consumers
+
+Databricks UI, Genie UI, and Genie One UI are NOT part of the citizen-developer experience.
+
+The citizen developer should never need to know whether the underlying data lives in Databricks, SQL Server, Azure SQL, or another system.
+
+⸻
+
+2. Target V1 Architecture
+
+Implement this conceptual architecture:
+
+                Cloud CoWork / Cloud Desktop
+                           |
+                           v
+                   Enterprise APIM
+                           |
+                          MCP
+                           |
+                           v
+                Enterprise Data Gateway
+                     Python FastAPI
+                           |
+      +--------------------+---------------------+
+      |                    |                     |
+      v                    v                     v
+  Identity           Business Access       Semantic Layer
+  Service               Service                 |
+      |                    |                    |
+      |                    |              Semantic Discovery
+      |                    |                    |
+      v                    v                    v
+Entra / Graph       Business Entitlements   Domain/Data Product
+                                                |
+                                                v
+                                        Query Understanding
+                                        +----------------+
+                                        |                |
+                                        v                v
+                                  Databricks Genie    OpenAI
+                                  (V1 provider)      (future)
+                                        |
+                                        v
+                                  Logical/SQL Query
+                                        |
+                                        v
+                                  SQL Guardrails
+                                        |
+                                        v
+                                  Query Planner
+                                        |
+                                        v
+                                Data Source Adapter
+                                        |
+                                        v
+                                  Databricks
+                                        |
+                                        v
+                                  Unity Catalog
+                                        |
+                                        v
+                                    SQL Warehouse
+                                        |
+                                        v
+                                       Data
+                                        |
+                                        v
+                                      Audit
+                                        |
+                                        v
+                                 Cloud CoWork
+
+Important:
+
+The FastAPI Enterprise Data Gateway is the center of the platform.
+
+Databricks is NOT the architectural center.
+
+Genie is NOT the architectural center.
+
+The LLM is NOT the authorization layer.
+
+Unity Catalog is the technical security boundary for Databricks data.
+
+⸻
+
+3. V0 Capabilities — Preserve Them
+
+Do NOT rewrite the working V0 functionality.
+
+The existing V0 already provides:
+
+3.1 Databricks Identity
+
+The application can identify the current Databricks user/email using the current development authentication mechanism.
+
+Preserve this.
+
+⸻
+
+3.2 Unity Catalog Authorization
+
+The application currently uses Databricks metadata/INFORMATION_SCHEMA/privilege information to determine whether the executing identity has technical access.
+
+Preserve this functionality.
+
+The V1 architecture must continue to support:
+
+* Catalog-level checks where relevant.
+* Schema-level checks where relevant.
+* Table-level checks.
+* Column-level security as enforced by Databricks.
+* Unity Catalog as the final technical authorization boundary.
+
+Do NOT recreate Unity Catalog ACLs inside the application.
+
+Do NOT grant Databricks privileges from FastAPI.
+
+Do NOT bypass Unity Catalog.
+
+⸻
+
+4. V0 SQL Security — Preserve and Strengthen
+
+SQL security was one of the two primary V0 goals.
+
+Continue to enforce it in V1.
+
+The SQL guardrail layer must be deterministic.
+
+The LLM or Genie must never be trusted to enforce security.
+
+Use a SQL parser/AST approach such as SQLGlot.
+
+Do NOT use simple string matching as the primary SQL security mechanism.
+
+Reject:
+
+* INSERT
+* UPDATE
+* DELETE
+* MERGE
+* DROP
+* ALTER
+* CREATE
+* TRUNCATE
+* CALL
+* GRANT
+* REVOKE
+* COPY where applicable
+* Administrative commands
+* Multiple statements
+* SELECT *
+* Unauthorized tables
+* Unauthorized columns where application-level column restrictions apply
+* Excessively complex queries
+* Queries without required LIMIT
+* Any query that violates configured query policies
+
+Allow only approved read/query operations.
+
+Return structured validation information:
+
+{
+“valid”: true,
+“normalized_sql”: “…”,
+“operation”: “SELECT”,
+“tables”: [],
+“columns”: [],
+“warnings”: []
+}
+
+⸻
+
+5. V1 — Business Access / Entitlement Layer
+
+This is one of the most important V1 additions.
+
+Create a Business Access Registry.
+
+Its purpose is NOT to duplicate Databricks permissions.
+
+It answers:
+
+“Is this business user/business role entitled to use this Data Product through the Enterprise Data Gateway?”
+
+Example:
+
+DENTAL_CITIZEN_DEVELOPER
+|
+v
+Dental
+|
+v
+Dental Claims
+
+Example configuration:
+
+business_groups:
+
+DENTAL_CITIZEN_DEVELOPER:
+domains:
+- dental
+data_products:
+- dental_claims
+
+CLAIMS_CITIZEN_DEVELOPER:
+domains:
+- claims
+data_products:
+- claims
+
+Do NOT store:
+
+user -> physical Databricks table -> SELECT
+
+That would duplicate Unity Catalog.
+
+Instead store:
+
+business group -> domain -> data product
+
+⸻
+
+6. Access Model
+
+V1 must clearly separate:
+
+Business Authorization
+
+“Can this user use Dental Claims?”
+
+from:
+
+Technical Authorization
+
+“Can the actual execution identity access the Databricks object?”
+
+Business authorization happens in FastAPI.
+
+Technical authorization remains in the source system.
+
+For Databricks:
+
+FastAPI business authorization
++
+Unity Catalog technical authorization
+
+For future SQL Server:
+
+FastAPI business authorization
++
+SQL Server technical authorization
+
+For future Azure SQL:
+
+FastAPI business authorization
++
+Azure SQL technical authorization
+
+This is why the core authorization service must NOT be Databricks-specific.
+
+⸻
+
+7. Identity Provider Abstraction
+
+Create:
+
+IdentityProvider
+
+Interface.
+
+Implement:
+
+1. Local/MockIdentityProvider
+2. Existing DatabricksIdentityProvider
+3. MicrosoftGraphIdentityProvider
+
+The V1 application should be runnable without Microsoft Graph access.
+
+The current local/mock implementation should provide configurable user/group mappings.
+
+Example:
+
+alice@example.com:
+groups:
+- DENTAL_CITIZEN_DEVELOPER
+
+bob@example.com:
+groups:
+- PET_CITIZEN_DEVELOPER
+
+Later:
+
+MicrosoftGraphIdentityProvider
+
+will resolve:
+
+User
+->
+Entra ID
+->
+Microsoft Graph
+->
+Group Membership
+->
+Business Access Registry
+
+The rest of the authorization architecture must not change.
+
+Microsoft Graph must be an adapter.
+
+Do not hard-code Graph calls throughout the application.
+
+⸻
+
+8. Identity Caching
+
+Do not query Microsoft Graph on every SQL request.
+
+Create an identity/group context abstraction.
+
+Allow group membership to be cached with configurable TTL.
+
+V1 local implementation may simply return configured groups.
+
+Future production implementation can use Graph + cache.
+
+Never cache authorization decisions indefinitely.
+
+⸻
+
+9. Semantic Layer
+
+V1 introduces a semantic/data-product layer.
+
+The semantic layer represents:
+
+“What does this enterprise data mean?”
+
+It is NOT merely a list of physical tables.
+
+Model:
+
+Domain
+->
+Data Product
+->
+Business Concepts
+->
+Metrics
+->
+Relationships
+->
+Physical Data Mappings
+
+Example:
+
+Dental
+|
++– Dental Claims
+|
++– Concepts
+|     +– Claim
+|     +– Provider
+|     +– Member
+|
++– Metrics
+|     +– Claim Count
+|     +– Rejected Claims
+|     +– Paid Claims
+|
++– Relationships
+|
++– Physical Sources
+
+⸻
+
+10. Do NOT manually author all semantics
+
+The initial V1 semantic model should be AI-assisted.
+
+Do NOT assume the platform developer knows the business semantics.
+
+Do NOT require a business SME to manually write YAML before the POC can start.
+
+Use existing enterprise metadata and Databricks metadata to discover candidate semantics.
+
+Potential discovery inputs:
+
+* Unity Catalog table names
+* Unity Catalog column names
+* Table comments
+* Column comments
+* Existing descriptions
+* Existing SQL
+* Foreign-key/relationship metadata
+* Existing dashboards where available
+* Existing queries
+* Existing data-product metadata
+
+The system should be able to produce candidate semantic information.
+
+Mark generated information:
+
+DISCOVERED
+
+Do not automatically treat all generated semantics as authoritative business truth.
+
+⸻
+
+11. Semantic Lifecycle
+
+Support:
+
+DISCOVERED
+->
+VALIDATED
+->
+PUBLISHED
+
+Example:
+
+Claim
+status = DISCOVERED
+
+Business/domain expert later reviews:
+
+Claim
+status = VALIDATED
+
+Then:
+
+Claim
+status = PUBLISHED
+
+The business/domain expert owns business meaning.
+
+Data engineering owns technical mapping.
+
+Platform engineering owns the platform and lifecycle.
+
+⸻
+
+12. Business vs Technical Semantic Ownership
+
+Separate:
+
+Business Semantic Layer
+
+Owned by business/domain experts.
+
+Examples:
+
+* What is a claim?
+* What is a rejected claim?
+* What is a paid claim?
+* What is a provider?
+* What is claim count?
+* What does rejection rate mean?
+* Which business synonyms are valid?
+
+Technical Semantic Mapping
+
+Owned by data engineering.
+
+Examples:
+
+Rejected Claim
+->
+catalog.schema.claims.claim_status = ‘REJECTED’
+
+Claim
+->
+catalog.schema.claims
+
+Provider
+->
+catalog.schema.provider
+
+Claim.provider_id
+->
+Provider.provider_id
+
+Do not mix these responsibilities.
+
+⸻
+
+13. Databricks Semantic/Genie Capabilities
+
+For V1, evaluate and use Databricks-native semantic capabilities where appropriate.
+
+Create ONE Dental Genie Agent for the POC.
+
+Do not expose its UI.
+
+Use it programmatically as the initial QueryUnderstandingProvider.
+
+The Genie Agent can use:
+
+* Selected Unity Catalog tables
+* Table/column descriptions
+* Relationships
+* SQL examples
+* Business instructions
+* Semantic context
+
+Genie is the initial query-understanding engine.
+
+It is NOT the enterprise semantic registry.
+
+It is NOT the business access registry.
+
+It is NOT the identity provider.
+
+It is NOT the authorization engine.
+
+⸻
+
+14. QueryUnderstandingProvider
+
+Create an interface:
+
+QueryUnderstandingProvider
+
+Example:
+
+class QueryUnderstandingProvider:
+generate_logical_query(…)
+generate_sql(…)
+
+Implement:
+
+DatabricksGenieProvider
+
+as the initial V1 implementation.
+
+Create an OpenAIProvider interface/implementation point for the near future.
+
+Future configuration:
+
+QUERY_PROVIDER=genie
+
+or:
+
+QUERY_PROVIDER=openai
+
+The rest of the application must not change.
+
+⸻
+
+15. Important LLM Architecture
+
+The LLM/Genie must receive a bounded semantic context.
+
+Do NOT send the entire enterprise catalog blindly to the LLM.
+
+Flow:
+
+User Question
+|
+v
+Identity
+|
+v
+Business Entitlement
+|
+v
+Data Product
+|
+v
+Relevant Semantic Context
+|
+v
+LLM / Genie
+|
+v
+Logical Query / SQL
+
+The LLM is responsible for language/query interpretation.
+
+The LLM is NOT responsible for authorization.
+
+⸻
+
+16. Logical Query Model
+
+Introduce a logical query abstraction where practical.
+
+Do not make the entire internal architecture dependent on raw SQL.
+
+Example:
+
+{
+“data_product”: “dental_claims”,
+“metric”: “rejected_claims”,
+“dimension”: “provider”,
+“time_range”: “previous_month”
+}
+
+Then:
+
+Logical Query
+->
+SQL generation
+->
+SQL Guardrails
+->
+Physical execution
+
+This will make V2 multi-source support easier.
+
+Do not over-engineer the logical query language in V1.
+
+A simple Pydantic model is sufficient.
+
+⸻
+
+17. Data Source Abstraction
+
+V1 must be source-agnostic by architecture.
+
+Create:
+
+DataSourceProvider
+
+Interface.
+
+Example:
+
+DataSourceProvider
+|
++– DatabricksProvider       <– V1 implementation
++– SQLServerProvider        <– future
++– AzureSQLProvider         <– future
++– OracleProvider           <– future
++– OtherProvider            <– future
+
+Only implement Databricks in V1.
+
+Do NOT implement SQL Server/Azure SQL now.
+
+The purpose is to avoid coupling the entire system to Databricks.
+
+⸻
+
+18. Data Product vs Physical Source
+
+A Data Product must be a logical/business abstraction.
+
+Example:
+
+Dental Claims
+
+may map to:
+
+catalog.schema.claims
+catalog.schema.provider
+catalog.schema.member
+
+Today these may all be Databricks objects.
+
+In the future:
+
+Dental Claims
+|
++– Databricks
++– SQL Server
++– Azure SQL
+
+The citizen developer should still see:
+
+Dental Claims
+
+not:
+
+catalog.schema.claims
+
+⸻
+
+19. Query Planner
+
+Introduce a lightweight QueryPlanner abstraction.
+
+V1:
+
+Logical Query
+->
+QueryPlanner
+->
+Databricks Physical Query
+
+Do not implement cross-source joins in V1.
+
+But do not hard-code:
+
+Logical Query -> Databricks SQL
+
+inside the entire application.
+
+Keep this boundary ready for V2.
+
+⸻
+
+20. V2 Compatibility
+
+The following are explicitly future requirements:
+
+* On-prem SQL Server
+* Azure SQL
+* Oracle
+* Salesforce
+* Other enterprise sources
+* Federated queries
+* Cross-source joins
+* More advanced ontology
+* Business semantic authoring UI
+
+V1 must not implement these.
+
+But the core interfaces must allow them later.
+
+⸻
+
+21. Query Execution Flow
+
+Implement the following mandatory flow:
+
+Cloud CoWork
+->
+FastAPI
+->
+Identity
+->
+Business Entitlement
+->
+Data Product Resolution
+->
+Semantic Context
+->
+QueryUnderstandingProvider
+->
+Logical Query / SQL
+->
+SQL AST Parser
+->
+SQL Policy Validation
+->
+Data Product Scope Validation
+->
+Query Planner
+->
+DatabricksProvider
+->
+Unity Catalog
+->
+SQL Warehouse
+->
+Result
+->
+Audit
+->
+Cloud CoWork
+
+Every query must pass through this pipeline.
+
+⸻
+
+22. Authorization Must Happen Before LLM/Genie
+
+Example:
+
+Bob is:
+
+PET_CITIZEN_DEVELOPER
+
+Bob asks:
+
+“Show me Dental Claims.”
+
+Expected:
+
+Identity
+->
+PET_CITIZEN_DEVELOPER
+->
+Business Access Registry
+->
+Dental Claims = DENIED
+->
+STOP
+
+Do NOT invoke Genie.
+
+Do NOT invoke OpenAI.
+
+Do NOT execute Databricks SQL.
+
+This prevents unauthorized users from using the LLM as a discovery mechanism.
+
+⸻
+
+23. Technical Authorization Scenario
+
+Example:
+
+Alice:
+
+DENTAL_CITIZEN_DEVELOPER
+->
+Dental Claims
+->
+AUTHORIZED
+
+Generated SQL:
+
+SELECT claim_status, COUNT(*)
+FROM approved_dental_table
+GROUP BY claim_status
+LIMIT 100
+
+SQL validation:
+
+PASS
+
+Databricks:
+
+Unity Catalog
+->
+technical access check
+
+If Unity Catalog denies:
+
+Return:
+
+TECHNICAL_AUTHORIZATION_DENIED
+
+Do not bypass or override the result.
+
+⸻
+
+24. SQL Guardrail Scenario
+
+Input:
+
+SELECT *
+
+Expected:
+
+REJECTED
+
+Input:
+
+DELETE FROM claims
+
+Expected:
+
+REJECTED
+
+Input:
+
+SELECT claim_id, claim_status
+FROM unauthorized_table
+LIMIT 100
+
+Expected:
+
+REJECTED
+
+Input:
+
+SELECT claim_id, claim_status
+FROM authorized_claims
+LIMIT 100
+
+Expected:
+
+PASS
+
+All guardrail decisions must be deterministic and auditable.
+
+⸻
+
+25. API Surface
+
+Keep the V1 API small.
+
+Implement:
+
+GET /health
+
+GET /me
+
+GET /me/access
+
+GET /data-products
+
+GET /data-products/{name}
+
+POST /query
+
+Optional internal/admin endpoints:
+
+POST /semantic/discover
+
+GET /semantic/{data_product}
+
+POST /query/understand
+
+Do not expose administrative endpoints to normal citizen developers.
+
+⸻
+
+26. Example /me/access
+
+GET /me/access
+
+Expected response:
+
+{
+“user”: “alice@example.com”,
+“groups”: [
+“DENTAL_CITIZEN_DEVELOPER”
+],
+“domains”: [
+“dental”
+],
+“data_products”: [
+“dental_claims”
+]
+}
+
+This endpoint is important for the V1 POC because it demonstrates that business entitlement is independent from physical Databricks ACLs.
+
+⸻
+
+27. Example Query Request
+
+POST /query
+
+{
+“question”: “How many rejected dental claims did we have last month?”,
+“data_product”: “dental_claims”
+}
+
+The server must NOT simply send this directly to an LLM.
+
+It must first:
+
+1. Resolve identity.
+2. Check business entitlement.
+3. Resolve data product.
+4. Retrieve semantic context.
+5. Invoke the QueryUnderstandingProvider.
+6. Validate generated SQL.
+7. Verify data-product scope.
+8. Execute.
+9. Audit.
+10. Return result.
+
+⸻
+
+28. Audit Layer
+
+Create:
+
+AuditService
+
+Every request should capture:
+
+* correlation_id
+* timestamp
+* user
+* groups
+* data_product
+* request type
+* natural-language request
+* generated logical query
+* generated SQL
+* normalized SQL
+* business authorization result
+* SQL validation result
+* referenced data sources
+* technical execution result
+* row count
+* duration
+* error/failure reason
+
+Never log:
+
+* PAT
+* OAuth token
+* client secret
+* passwords
+* credentials
+
+For V1, structured application logs are sufficient.
+
+⸻
+
+29. Configuration
+
+Use external configuration.
+
+Suggested:
+
+config/
+
+business_access.yaml
+
+semantic/
+
+dental.yaml
+
+query_policies.yaml
+
+data_sources.yaml
+
+Example:
+
+data_sources:
+
+databricks_primary:
+type: databricks
+enabled: true
+
+Do not store credentials in YAML.
+
+Use environment variables or the organization’s approved secret-management mechanism.
+
+⸻
+
+30. Suggested Project Structure
+
+enterprise-data-gateway/
+
+app/
+main.py
+
+api/
+    health.py
+    identity.py
+    access.py
+    data_products.py
+    query.py
+    semantic.py
+identity/
+    interface.py
+    local_provider.py
+    databricks_provider.py
+    graph_provider.py
+authorization/
+    business_access.py
+    policy.py
+semantic/
+    models.py
+    registry.py
+    discovery.py
+    resolver.py
+llm/
+    interface.py
+    genie_provider.py
+    openai_provider.py
+query/
+    models.py
+    orchestrator.py
+    planner.py
+    validator.py
+datasources/
+    interface.py
+    databricks.py
+databricks/
+    client.py
+    unity_catalog.py
+    sql_warehouse.py
+audit/
+    service.py
+
+config/
+business_access.yaml
+data_sources.yaml
+query_policies.yaml
+semantic/
+dental.yaml
+
+tests/
+unit/
+integration/
+
+Do not split this into microservices.
+
+V1 should be a modular FastAPI monolith with clear boundaries.
+
+⸻
+
+31. V1 Dental POC
+
+Use one domain:
+
+DENTAL
+
+Use approximately:
+
+3–10 representative tables/views.
+
+Create:
+
+1. One Dental data product.
+2. One Dental citizen-developer business group.
+3. One authorized test user.
+4. One unauthorized test user.
+5. One Databricks provider.
+6. One Genie Agent.
+7. 10–20 representative natural-language questions.
+8. Positive authorization tests.
+9. Negative authorization tests.
+10. SQL guardrail tests.
+11. Technical Unity Catalog authorization tests.
+
+⸻
+
+32. Semantic Discovery POC
+
+For Dental, do NOT manually create a complete semantic model first.
+
+Build a discovery process that reads available metadata and produces candidate semantics.
+
+Example candidate:
+
+{
+“concept”: “claim”,
+“source”: “catalog.schema.claims”,
+“status”: “DISCOVERED”,
+“confidence”: “HIGH”
+}
+
+Another:
+
+{
+“concept”: “rejected_claim”,
+“source”: “catalog.schema.claims.claim_status”,
+“condition”: “REJECTED”,
+“status”: “DISCOVERED”,
+“confidence”: “MEDIUM”
+}
+
+The discovery process must not automatically grant access.
+
+Semantic discovery and authorization are completely separate.
+
+⸻
+
+33. Access Metadata POC
+
+For V1, explicitly configure:
+
+DENTAL_CITIZEN_DEVELOPER
+->
+dental
+->
+dental_claims
+
+Then test:
+
+Authorized user:
+DENTAL_CITIZEN_DEVELOPER
+->
+PASS
+
+Unauthorized user:
+PET_CITIZEN_DEVELOPER
+->
+FAIL
+
+Unknown user:
+no business group
+->
+FAIL
+
+This metadata layer is mandatory for V1.
+
+⸻
+
+34. Security Boundary
+
+The system must have these security boundaries:
+
+Cloud CoWork
+->
+Enterprise APIM
+->
+FastAPI
+
+FastAPI:
+Business Authorization
+SQL Policy
+Data Product Scope
+Audit
+
+Databricks:
+Unity Catalog
+Technical Authorization
+Actual Data Access
+
+The LLM/Genie sits inside the controlled pipeline.
+
+It must never become the security boundary.
+
+⸻
+
+35. Performance / Scale Design
+
+The eventual target is approximately:
+
+45,000 citizen developers.
+
+Do not optimize for 45,000 users in the V1 POC.
+
+However:
+
+* Use async FastAPI where appropriate.
+* Use connection/client pooling where supported.
+* Cache metadata appropriately.
+* Cache identity/group information with TTL.
+* Do not repeatedly query INFORMATION_SCHEMA unnecessarily.
+* Do not invoke LLM/Genie for unauthorized requests.
+* Keep business-access metadata lookup fast.
+* Use correlation IDs.
+* Make downstream calls timeout-safe.
+* Do not keep application threads blocked waiting indefinitely for Databricks.
+
+Design the interfaces so horizontal scaling of FastAPI is possible.
+
+Do not introduce Kubernetes-specific implementation into the POC unless already required by the existing environment.
+
+⸻
+
+36. Cost Principles
+
+V1 should be cost-conscious.
+
+Do not maintain an always-running Spark cluster just for the gateway.
+
+Use Databricks SQL Warehouse appropriately.
+
+Prefer serverless SQL Warehouse if approved and available.
+
+Do not invoke Genie/LLM until:
+
+1. User is authenticated.
+2. Business authorization succeeds.
+3. Data product is resolved.
+
+Do not use an LLM merely to determine whether a user has access.
+
+Authorization must be deterministic.
+
+⸻
+
+37. What NOT to Build in V1
+
+Do not build:
+
+* 50 domains.
+* 45,000-user load test.
+* SQL Server adapter.
+* Azure SQL adapter.
+* Oracle adapter.
+* Salesforce adapter.
+* Federated cross-source query engine.
+* Cross-source joins.
+* Full ontology platform.
+* Semantic authoring UI.
+* RAG/vector database.
+* LangGraph.
+* Complex agent orchestration.
+* PII masking.
+* Databricks UI integration.
+* Genie One UI.
+* Citizen-developer Databricks accounts.
+* Direct citizen-developer access to Unity Catalog.
+* Microservice decomposition.
+
+The architecture must support these future capabilities, but V1 should not implement them.
+
+⸻
+
+38. V1 Definition of Done
+
+The V1 is complete when this end-to-end scenario works:
+
+Alice belongs to:
+
+DENTAL_CITIZEN_DEVELOPER
+
+Business metadata maps:
+
+DENTAL_CITIZEN_DEVELOPER
+->
+Dental
+->
+Dental Claims
+
+Alice sends through Cloud CoWork:
+
+“How many rejected dental claims did we have last month?”
+
+FastAPI:
+
+1. Identifies Alice.
+2. Resolves her groups.
+3. Confirms Dental Claims entitlement.
+4. Retrieves Dental semantic context.
+5. Sends the bounded context to Genie.
+6. Receives generated SQL/logical query.
+7. Parses SQL.
+8. Rejects unsafe SQL if necessary.
+9. Confirms physical objects are within Dental Claims scope.
+10. Executes through Databricks.
+11. Unity Catalog enforces technical access.
+12. Returns only the actual authorized result.
+13. Records an audit event.
+14. Returns the result to Cloud CoWork.
+
+Then execute the same request with Bob:
+
+PET_CITIZEN_DEVELOPER
+
+Expected:
+
+Business authorization fails.
+
+Genie/LLM is NOT called.
+
+Databricks is NOT called.
+
+The request is audited as DENIED.
+
+⸻
+
+39. V1 Architectural Success Criteria
+
+The implementation should demonstrate these boundaries clearly:
+
+                CLOUD
+                   |
+             Interaction
+                   |
+                FASTAPI
+                   |
+    +--------------+--------------+
+    |              |              |
+ Identity       Business       Semantic
+                Access
+    |              |              |
+    +--------------+--------------+
+                   |
+             Query Understanding
+               Genie / LLM
+                   |
+             SQL Guardrails
+                   |
+              Query Planner
+                   |
+            Data Source Layer
+                   |
+              Databricks
+                   |
+            Unity Catalog
+                   |
+                 Data
+
+The application should be designed so that:
+
+* Microsoft Graph can replace the mock identity provider.
+* OpenAI can replace Genie.
+* SQL Server can become another DataSourceProvider.
+* Azure SQL can become another DataSourceProvider.
+* New domains can be added through metadata/configuration.
+* New data products can be added without rewriting authorization logic.
+* Physical data locations can change without changing the citizen-developer interface.
+
+⸻
+
+40. Final Architectural Principle
+
+The product being built is NOT:
+
+“An LLM that queries Databricks.”
+
+The product is:
+
+“An Enterprise Data Gateway that provides governed access to enterprise Data Products.”
+
+Its responsibilities are:
+
+Identity
++
+Business Entitlement
++
+Semantic Context
++
+Query Understanding
++
+SQL Guardrails
++
+Query Planning
++
+Source-specific Execution
++
+Technical Authorization
++
+Audit
+
+Databricks is the primary V1 data platform.
+
+Genie is the initial V1 query-understanding implementation.
+
+OpenAI is a future interchangeable query-understanding implementation.
+
+Unity Catalog is the technical security boundary for Databricks.
+
+Cloud CoWork is the interaction layer.
+
+The architecture must remain source-agnostic so that future versions can connect SQL Server, Azure SQL, Oracle, Salesforce, APIs, and other enterprise data sources without redesigning the Enterprise Data Gateway.
