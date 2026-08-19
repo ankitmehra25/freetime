@@ -1,0 +1,12 @@
+{
+  "name": "markdown-to-word",
+  "version": "1.0.0",
+  "description": "Convert Markdown documents with Mermaid diagrams to Microsoft Word documents",
+  "main": "convert.js",
+  "scripts": {
+    "convert": "node convert.js"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.0"
+  }
+}
