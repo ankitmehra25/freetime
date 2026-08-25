@@ -136,6 +136,132 @@ Tenant C → Partner quote engine
   }
 }
 
+                         ┌──────────────┐
+                         │ Contact Form │
+                         └──────┬───────┘
+                                │
+                         ┌──────▼───────┐
+                         │              │
+┌──────────────┐         │ Lead Intake │         ┌───────────────┐
+│ CSV Upload   ├────────►│             │◄────────┤ Manual Create │
+└──────────────┘         └──────┬───────┘         └───────────────┘
+                                │
+                                ▼
+                         Deduplication
+                                │
+                                ▼
+                         Lead Created
+                                │
+                                ▼
+                         Lead Assignment
+                                │
+                                ▼
+                           Nurturing
+                                │
+                                ▼
+                           Contacted
+                                │
+                                ▼
+                         Lead Qualified
+                                │
+                                ▼
+                       Convert Lead
+                         /        \
+                        /          \
+                       ▼            ▼
+                   Contact      Opportunity
+                                  │
+                                  ▼
+                                 Quote
+                                  │
+                                  ▼
+                             Application
+                                  │
+                                  ▼
+                                Policy
+
+
+
+                                
+Browser
+   │
+   │ Upload
+   ▼
+Blob Storage
+   │
+   │ File uploaded
+   ▼
+Ingestion Job
+   │
+   ▼
+CSV Processor
+   │
+   ├── Parse
+   ├── Validate
+   ├── Normalize
+   ├── Deduplicate
+   └── Persist Leads
+
+
+
+Raw CSV record
+      │
+      ▼
+Normalize
+      │
+      ▼
+Deduplication
+      │
+ ┌────┴────┐
+ │         │
+New      Duplicate
+ │         │
+ ▼         ▼
+Create    Ignore/
+Lead      merge/report
+
+
+Import ID
+    │
+    └── identifies ingestion operation
+
+External Lead ID
+    │
+    └── identifies lead in originating system
+
+CRM Lead ID
+    │
+    └── identifies lead in YOUR domain
+
+{
+  "leadId": "L-100023",
+  "externalReferences": [
+    {
+      "system": "PartnerA",
+      "id": "ABC-789"
+    }
+  ]
+}
+
+
+Upload
+  │
+  ├── tenantId
+  ├── importId
+  └── blob reference
+       │
+       ▼
+Ingestion Worker
+       │
+       ▼
+Tenant A DB
+       │
+       └── leads
+
+    
+
+   
+
 
 
 
