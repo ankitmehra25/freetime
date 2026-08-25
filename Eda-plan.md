@@ -258,11 +258,180 @@ Tenant A DB
        │
        └── leads
 
-    
+    event envelope
+    eventId
+eventType
+eventVersion
+tenantId
+occurredAt
+source
+correlationId
+causationId
+entityType
+entityId
+
+
+canonical lead data
+
+leadId
+name
+phone
+email
+source
+status
+assignedTo
+
+
+extensions
+
+extensions
+   └── tenant-specific attributes
+
+
+   {
+  "eventId": "EVT-123",
+  "eventType": "LeadCreated",
+  "eventVersion": "1.0",
+  "tenantId": "TENANT-A",
+  "entityType": "Lead",
+  "entityId": "L-100023",
+  "occurredAt": "2026-08-25T08:30:00Z",
+  "source": "CSV",
+
+  "data": {
+    "leadId": "L-100023",
+    "firstName": "John",
+    "lastName": "Smith",
+    "phone": "+919999999999",
+    "email": "john@example.com"
+  },
+
+  "extensions": {
+    "campaignCode": "ABC123"
+  }
+}
+
+
+Metadata Source
+      │
+      ▼
+Metadata Pipeline
+      │
+      ├── Validate
+      ├── Version
+      ├── Publish
+      └── Store
+             │
+             ▼
+        Blob Storage
+             │
+             ▼
+     Configuration Service
+             │
+             ▼
+          CRM
+
+
+          Lead
+  │
+  │ Agent works with lead
+  │
+  │ Lead agrees to pursue policy
+  ▼
+Convert
+  │
+  ├── Contact created
+  │
+  └── Opportunity created
+event LeadConverted
+
+data -> leadId
+contactId
+opportunityId
+tenantId
+
+
+
+business event vs publish events distinguishing needed
+
+LeadCreated
+     │
+     ▼
+LeadAssigned
+     │
+     ▼
+LeadQualified
+     │
+     ▼
+LeadConverted
+     │
+     ├─────────────► ContactCreated
+     │
+     └─────────────► OpportunityCreated
+                              │
+                              ▼
+                         QuoteRequested
+                              │
+                              ▼
+                         QuoteGenerated
+                              │
+                              ▼
+                          QuoteAccepted
+                              │
+                              ▼
+                     ApplicationRequested
+                              │
+                              ▼
+                     ApplicationCreated
 
    
 
-
+                 ┌───────────────┐
+                 │ CSV File      │
+                 └───────┬───────┘
+                         │
+                         ▼
+                    Blob Storage
+                         │
+                         ▼
+                  Import Job
+                         │
+                         ▼
+                  Batch Processor
+                         │
+                ┌────────┼────────┐
+                │        │        │
+             Parse    Validate   Normalize
+                │        │        │
+                └────────┼────────┘
+                         ▼
+                    Deduplicate
+                         │
+                 ┌───────┴────────┐
+                 │                │
+              Duplicate          New
+                 │                │
+                 ▼                ▼
+             Rejected        Create Lead
+                                  │
+                                  ▼
+                            Tenant DB
+                             /leads
+                                  │
+                                  ▼
+                             Outbox
+                                  │
+                                  ▼
+                         LeadCreated Event
+                                  │
+                                  ▼
+                            Event Bus
+                                  │
+                     ┌────────────┼───────────┐
+                     │            │           │
+                     ▼            ▼           ▼
+                 Analytics    Integration   Other
+                                Layer       consumers
 
 
 
